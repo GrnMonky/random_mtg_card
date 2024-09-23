@@ -27,7 +27,8 @@ class RandomCardPage extends StatefulWidget {
   _RandomCardPageState createState() => _RandomCardPageState();
 }
 
-class _RandomCardPageState extends State<RandomCardPage> {
+class _RandomCardPageState extends State<RandomCardPage>
+    with WidgetsBindingObserver {
   String cardImageUrl = '';
   String cardType = '';
   bool isPlaying = true;
@@ -41,8 +42,31 @@ class _RandomCardPageState extends State<RandomCardPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Add observer for app lifecycle
     fetchRandomCard();
     startTimer();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Remove observer when done
+    timer?.cancel();
+    super.dispose();
+  }
+
+  // Detect app lifecycle changes
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // App is in the background or detached, stop the timer
+      stopTimer();
+    } else if (state == AppLifecycleState.resumed) {
+      // App is back to the foreground, restart the timer
+      if (isPlaying) {
+        startTimer();
+      }
+    }
   }
 
   // Function to fetch a random card
@@ -57,7 +81,7 @@ class _RandomCardPageState extends State<RandomCardPage> {
           if (cardImageUrl.isNotEmpty) {
             cardHistory.add(cardImageUrl);
           }
-          cardImageUrl = cardData['image_uris']['normal'];
+          cardImageUrl = cardData['image_uris']['png'];
           List<String> manaColors =
               List<String>.from(cardData['colors']); // Get card mana type
 
@@ -145,12 +169,6 @@ class _RandomCardPageState extends State<RandomCardPage> {
   }
 
   @override
-  void dispose() {
-    timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       // Dynamically set background color based on mana type
@@ -162,7 +180,7 @@ class _RandomCardPageState extends State<RandomCardPage> {
           children: [
             // Top section: Card image
             cardImageUrl.isNotEmpty
-                ? Flexible(
+                ? Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Image.network(
@@ -177,7 +195,6 @@ class _RandomCardPageState extends State<RandomCardPage> {
                     style: TextStyle(
                         color: Colors.white), // Text color for loading message
                   ),
-
             // Bottom section with background color behind text, buttons, and slider
             Container(
               color: Colors.black54, // Background color for the bottom section
