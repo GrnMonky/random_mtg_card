@@ -10,13 +10,9 @@ class MTGCardApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       title: 'MTG Card Viewer',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        secondaryHeaderColor: Colors.red,
-      ),
-      home: const RandomCardPage(),
+      home: RandomCardPage(),
     );
   }
 }
@@ -31,20 +27,17 @@ class RandomCardPage extends StatefulWidget {
 class _RandomCardPageState extends State<RandomCardPage>
     with WidgetsBindingObserver {
   String cardImageUrl = '';
-  String cardType = '';
+  String nextCardImageUrl = ''; // URL for preloading the next card image
   bool isPlaying = true;
-  int intervalDuration = 20; // Initial interval duration in seconds
+  int intervalDuration = 30; // Initial interval duration in seconds
   Timer? timer;
   Color backgroundColor = Colors.black; // Initial background color
-
-  // List to store card history
-  List<String> cardHistory = [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this); // Add observer for app lifecycle
-    fetchRandomCard();
+    fetchRandomCard(); // Load the initial card
     startTimer();
   }
 
@@ -61,10 +54,8 @@ class _RandomCardPageState extends State<RandomCardPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      // App is in the background or detached, stop the timer
       stopTimer();
     } else if (state == AppLifecycleState.resumed) {
-      // App is back to the foreground, restart the timer
       if (isPlaying) {
         startTimer();
       }
@@ -72,28 +63,25 @@ class _RandomCardPageState extends State<RandomCardPage>
   }
 
   // Function to fetch a random card
-  Future<void> fetchRandomCard() async {
+  Future<void> fetchRandomCard({bool preloadNext = false}) async {
     try {
       final response = await http
           .get(Uri.parse('https://api.scryfall.com/cards/random?lang=en'));
       if (response.statusCode == 200) {
         final cardData = json.decode(response.body);
-        setState(() {
-          // Add the current card to history before changing it
-          if (cardImageUrl.isNotEmpty) {
-            cardHistory.add(cardImageUrl);
-          }
-          cardImageUrl = cardData['image_uris']['png'];
-          List<String> manaColors =
-              List<String>.from(cardData['colors']); // Get card mana type
+        String newCardImageUrl = cardData['image_uris']['png'];
 
-          var color = getBackgroundColorFromManaType(manaColors);
-
-          // Set background color based on mana type
-          backgroundColor = (color == Colors.black || color == Colors.white)
-              ? color
-              : HSLColor.fromColor(color).withLightness(0.1).toColor();
-        });
+        if (preloadNext) {
+          nextCardImageUrl = newCardImageUrl; // Preload the next card
+          precacheImage(
+              NetworkImage(nextCardImageUrl), context); // Preload image
+        } else {
+          setState(() {
+            cardImageUrl = newCardImageUrl; // Display the current card
+          });
+          // After showing the current card, preload the next card
+          fetchRandomCard(preloadNext: true);
+        }
       } else {
         if (kDebugMode) {
           print('Failed to load card');
@@ -106,43 +94,14 @@ class _RandomCardPageState extends State<RandomCardPage>
     }
   }
 
-  // Function to map mana types to background colors
-  Color getBackgroundColorFromManaType(List<String> manaColors) {
-    var first = manaColors.firstOrNull ?? "E";
-    switch (first) {
-      case 'W':
-        return Colors.white;
-      case 'U':
-        return Colors.blue;
-      case 'B':
-        return Colors.grey;
-      case 'R':
-        return Colors.red;
-      case 'G':
-        return Colors.green;
-      case 'E':
-        return Colors.purple; // Colorless cards
-      default:
-        return Colors.black; // For multicolored or any other cards
-    }
-  }
-
-  // Function to go back to the previous card
-  void goBackToPreviousCard() {
-    if (cardHistory.isNotEmpty) {
-      setState(() {
-        // Set the current card to the last card in history
-        cardImageUrl = cardHistory.removeLast();
-      });
-      startTimer(); // Reset the timer when "Previous" is pressed
-    }
-  }
-
   // Function to start the timer for fetching cards
   void startTimer() {
     timer?.cancel(); // Cancel any existing timer
     timer = Timer.periodic(Duration(seconds: intervalDuration), (timer) {
-      fetchRandomCard();
+      setState(() {
+        cardImageUrl = nextCardImageUrl; // Show the preloaded next card
+      });
+      fetchRandomCard(preloadNext: true); // Preload the next card
     });
     WakelockPlus
         .enable(); // Enable wakelock to prevent the screen from sleeping
@@ -182,65 +141,45 @@ class _RandomCardPageState extends State<RandomCardPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Dynamically set background color based on mana type
       backgroundColor: backgroundColor,
       body: SafeArea(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment
-              .spaceBetween, // Space between top and bottom elements
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Top section: Card image
             cardImageUrl.isNotEmpty
                 ? Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Image.network(
                         cardImageUrl,
-                        fit: BoxFit
-                            .contain, // Resizes the image to avoid getting cut off
+                        fit: BoxFit.contain,
                       ),
                     ),
                   )
                 : const Text(
                     'Loading...',
-                    style: TextStyle(
-                        color: Colors.white), // Text color for loading message
+                    style: TextStyle(color: Colors.white),
                   ),
-            // Bottom section with background color behind text, buttons, and slider
             Container(
-              color: Colors.black54, // Background color for the bottom section
-              padding: const EdgeInsets.all(
-                  16.0), // Padding around the text, buttons, and slider
+              color: Colors.black54,
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // Slider to change speed
                   Text(
                     'Change speed (seconds): $intervalDuration',
-                    style: const TextStyle(
-                        color: Colors.white), // Text color for slider label
+                    style: const TextStyle(color: Colors.white),
                   ),
                   Slider(
                     value: intervalDuration.toDouble(),
                     min: 10,
                     max: 120,
                     divisions: 22,
-                    label: '$intervalDuration seconds',
+                    label: '$intervalDuration',
                     onChanged: handleSliderChange,
-                    activeColor: Colors.white, // Slider color for visibility
-                    inactiveColor: Colors.grey,
                   ),
-
-                  // Buttons for previous, play/pause, and next
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Conditionally show "Previous" button if there's history
-                      if (cardHistory.isNotEmpty)
-                        ElevatedButton(
-                          onPressed: goBackToPreviousCard,
-                          child: const Text('Previous'),
-                        ),
-                      const SizedBox(width: 10),
                       ElevatedButton(
                         onPressed: togglePlayPause,
                         child: Text(isPlaying ? 'Pause' : 'Play'),
@@ -248,8 +187,11 @@ class _RandomCardPageState extends State<RandomCardPage>
                       const SizedBox(width: 10),
                       ElevatedButton(
                         onPressed: () {
-                          fetchRandomCard();
-                          startTimer(); // Reset the timer when "Next" is pressed
+                          setState(() {
+                            cardImageUrl = nextCardImageUrl; // Show next card
+                          });
+                          fetchRandomCard(preloadNext: true); // Preload another
+                          startTimer();
                         },
                         child: const Text('Next'),
                       ),
