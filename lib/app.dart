@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:wakelock_plus/wakelock_plus.dart'; // Import wakelock_plus
 import 'dart:convert';
 import 'dart:async';
 
@@ -51,6 +52,7 @@ class _RandomCardPageState extends State<RandomCardPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this); // Remove observer when done
     timer?.cancel();
+    WakelockPlus.disable(); // Disable wakelock when the screen is disposed
     super.dispose();
   }
 
@@ -142,6 +144,8 @@ class _RandomCardPageState extends State<RandomCardPage>
     timer = Timer.periodic(Duration(seconds: intervalDuration), (timer) {
       fetchRandomCard();
     });
+    WakelockPlus
+        .enable(); // Enable wakelock to prevent the screen from sleeping
     setState(() {
       isPlaying = true;
     });
@@ -150,6 +154,7 @@ class _RandomCardPageState extends State<RandomCardPage>
   // Function to stop the timer
   void stopTimer() {
     timer?.cancel();
+    WakelockPlus.disable(); // Disable wakelock to allow the screen to sleep
     setState(() {
       isPlaying = false;
     });
