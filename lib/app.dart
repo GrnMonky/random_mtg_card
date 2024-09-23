@@ -85,8 +85,12 @@ class _RandomCardPageState extends State<RandomCardPage>
           List<String> manaColors =
               List<String>.from(cardData['colors']); // Get card mana type
 
+          var color = getBackgroundColorFromManaType(manaColors);
+
           // Set background color based on mana type
-          backgroundColor = getBackgroundColorFromManaType(manaColors);
+          backgroundColor = (color == Colors.black || color == Colors.white)
+              ? color
+              : HSLColor.fromColor(color).withLightness(0.1).toColor();
         });
       } else {
         if (kDebugMode) {
@@ -102,20 +106,22 @@ class _RandomCardPageState extends State<RandomCardPage>
 
   // Function to map mana types to background colors
   Color getBackgroundColorFromManaType(List<String> manaColors) {
-    if (manaColors.contains('W')) {
-      return Colors.white;
-    } else if (manaColors.contains('U')) {
-      return Colors.blue;
-    } else if (manaColors.contains('B')) {
-      return Colors.black;
-    } else if (manaColors.contains('R')) {
-      return Colors.red;
-    } else if (manaColors.contains('G')) {
-      return Colors.green;
-    } else if (manaColors.isEmpty) {
-      return Colors.grey; // Colorless cards
-    } else {
-      return Colors.purple; // For multicolored or any other cards
+    var first = manaColors.firstOrNull ?? "E";
+    switch (first) {
+      case 'W':
+        return Colors.white;
+      case 'U':
+        return Colors.blue;
+      case 'B':
+        return Colors.grey;
+      case 'R':
+        return Colors.red;
+      case 'G':
+        return Colors.green;
+      case 'E':
+        return Colors.purple; // Colorless cards
+      default:
+        return Colors.black; // For multicolored or any other cards
     }
   }
 
