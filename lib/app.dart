@@ -65,8 +65,8 @@ class _RandomCardPageState extends State<RandomCardPage>
   // Function to fetch a random card
   Future<void> fetchRandomCard({bool preloadNext = false}) async {
     try {
-      final response = await http
-          .get(Uri.parse('https://api.scryfall.com/cards/random?lang=en'));
+      String url = 'https://api.scryfall.com/cards/random';
+      final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final cardData = json.decode(response.body);
         String newCardImageUrl = cardData['image_uris']['png'];
@@ -191,7 +191,9 @@ class _RandomCardPageState extends State<RandomCardPage>
                             cardImageUrl = nextCardImageUrl; // Show next card
                           });
                           fetchRandomCard(preloadNext: true); // Preload another
-                          startTimer();
+                          if (isPlaying) {
+                            startTimer();
+                          }
                         },
                         child: const Text('Next'),
                       ),
